@@ -202,25 +202,25 @@
     
     <div class="sidebar-nav">
         <a href="dashboard.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'dashboard.php') ? 'active' : ''; ?>">
-            <i class='bx bx-grid-alt'></i> Dashboard
+            <i class='bx bx-grid-alt'></i> Beranda
         </a>
         <a href="courts.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'courts.php') ? 'active' : ''; ?>">
-            <i class='bx bx-tennis-ball'></i> Court Management
+            <i class='bx bx-tennis-ball'></i> Manajemen Lapangan
         </a>
         <a href="venue_info.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'venue_info.php') ? 'active' : ''; ?>">
-            <i class='bx bx-building-house'></i> Venue Info
+            <i class='bx bx-building-house'></i> Info Gedung
         </a>
         <a href="bookings.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'bookings.php') ? 'active' : ''; ?>">
-            <i class='bx bx-calendar-check'></i> Bookings
+            <i class='bx bx-calendar-check'></i> Pemesanan
         </a>
         <a href="report.php" class="<?php echo (basename($_SERVER['PHP_SELF']) == 'report.php') ? 'active' : ''; ?>">
-            <i class='bx bx-line-chart'></i> Reports
+            <i class='bx bx-line-chart'></i> Laporan
         </a>
     </div>
 
     <div class="sidebar-bottom">
         <a href="dashboard.php" class="btn-new-booking">
-            <i class='bx bx-plus'></i> New Booking
+            <i class='bx bx-plus'></i> Pemesanan Baru
         </a>
         
         <div class="sidebar-profile">
