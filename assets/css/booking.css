@@ -57,41 +57,66 @@ h2, h3, h4 {
     gap: 20px;
 }
 
+.form-group {
+    position: relative;
+}
+
 .form-group label {
     display: block;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
-    color: #555555;
-    margin-bottom: 8px;
+    color: #666666;
+    margin-bottom: 6px;
+}
+
+.input-with-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-with-icon i {
+    position: absolute;
+    left: 12px;
+    color: #888888;
+    font-size: 18px;
 }
 
 .form-input {
     font-family: 'Inter', sans-serif;
     width: 100%;
-    padding: 12px;
-    border: 1px solid #DDDDDD;
+    padding: 12px 12px 12px 38px; /* padding-left for icon */
+    border: 1px solid #E2E8F0;
     border-radius: 8px;
-    background-color: #F9F9F9;
-    color: #777777;
+    background-color: #F8FAFC;
+    color: #4A5568;
     box-sizing: border-box;
     font-size: 14px;
+    transition: all 0.2s;
+}
+
+.form-input:focus {
+    border-color: var(--primary);
+    background-color: var(--white);
+    outline: none;
 }
 
 .payment-options {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 15px;
 }
 
 .payment-method {
     display: flex;
     align-items: center;
-    gap: 15px;
-    padding: 18px;
-    border: 1px solid var(--border);
+    gap: 12px;
+    padding: 15px;
+    border: 1px solid #E2E8F0;
     border-radius: 10px;
     cursor: pointer;
     transition: all 0.2s ease;
+    background: var(--white);
 }
 
 .payment-method:hover {
@@ -101,7 +126,19 @@ h2, h3, h4 {
 
 .payment-method.active {
     border-color: var(--primary);
-    background-color: #F4F8FF;
+    background-color: #EEF4FF;
+}
+
+.payment-icon-box {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 40px;
+    height: 40px;
+    background: #F8FAFC;
+    border-radius: 8px;
+    color: var(--primary);
+    font-size: 20px;
 }
 
 .payment-details {
@@ -128,9 +165,11 @@ h2, h3, h4 {
 .summary-card {
     background: var(--white);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 30px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.01);
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    position: sticky;
+    top: 30px;
 }
 
 .summary-card h3 {
@@ -140,14 +179,15 @@ h2, h3, h4 {
 }
 
 .venue-summary h4 {
-    margin: 0;
-    font-size: 18px;
+    margin: 15px 0 5px 0;
+    font-size: 16px;
+    font-weight: 700;
 }
 
 .venue-summary p {
     color: #666666;
-    font-size: 14px;
-    margin: 4px 0 12px 0;
+    font-size: 13px;
+    margin: 0;
 }
 
 .badge-court {
@@ -181,15 +221,19 @@ h2, h3, h4 {
 }
 
 .price-row.total {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--dark);
-    margin-top: 10px;
+    margin-top: 15px;
+    background: #E8F0FE;
+    padding: 15px;
+    border-radius: 8px;
+    align-items: center;
 }
 
 .total-amount {
     color: var(--primary) !important;
-    font-size: 20px;
+    font-size: 22px;
 }
 
 .btn-pay-now {

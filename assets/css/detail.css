@@ -27,6 +27,12 @@ h4 {
   margin: 0 auto;
 }
 
+.detail-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 5%;
+}
+
 .main-info {
   flex: 2;
 }
@@ -181,8 +187,8 @@ h4 {
 
 .time-slots {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
 .slot-btn {
@@ -205,10 +211,10 @@ h4 {
 }
 
 .slot-btn.booked {
-  background-color: #f5f5f5;
-  color: #bbbbbb;
+  background-color: #f4f6fc;
+  color: #a0aec0;
   cursor: not-allowed;
-  border-color: #eaeaea;
+  border: 1px dashed #cbd5e0;
 }
 
 .btn-primary-block {

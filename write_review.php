@@ -1,27 +1,26 @@
 <?php
 include 'config/database.php';
+require_once 'controllers/FrontController.php';
+
 include 'includes/header.php';
 
 $venue_id = isset($_GET['venue_id']) ? intval($_GET['venue_id']) : 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $rating = intval($_POST['rating']);
-    $review_text = trim($_POST['review_text']);
-    
-    if ($rating >= 1 && $rating <= 5 && !empty($review_text)) {
-        try {
-            $stmt = $pdo->prepare("INSERT INTO reviews (user_id, venue_id, rating, review_text) VALUES (:uid, :vid, :rating, :txt)");
-            $stmt->execute([
-                'uid' => $_SESSION['user_id'],
-                'vid' => $venue_id,
-                'rating' => $rating,
-                'txt' => $review_text
-            ]);
-            echo "<script>alert('Terima kasih! Ulasan Anda berhasil disimpan.'); window.location.href='my_bookings.php';</script>";
+    $_POST['venue_id'] = $venue_id;
+    $_POST['comment'] = $_POST['review_text']; // Mapping field name
+    try {
+        $controller = new FrontController($pdo);
+        $result = $controller->handleReview($_POST, $_SESSION['user_id']);
+        
+        if (isset($result['success'])) {
+            echo "<script>alert('" . addslashes($result['success']) . "'); window.location.href='my_bookings.php';</script>";
             exit;
-        } catch (PDOException $e) {
-            die("Error: " . $e->getMessage());
+        } else {
+            echo "<script>alert('" . addslashes($result['error']) . "');</script>";
         }
+    } catch (Exception $e) {
+        die("Error: " . $e->getMessage());
     }
 }
 ?>

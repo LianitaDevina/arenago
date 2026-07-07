@@ -1,16 +1,31 @@
 <?php
+session_start();
 include '../config/database.php';
-if (session_status() == PHP_SESSION_NONE) { session_start(); }
+require_once '../controllers/SuperadminController.php';
 
+// Cek akses Superadmin
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'superadmin') {
     die("Akses ditolak.");
 }
 
 try {
-    $stmt = $pdo->query("SELECT id, name, email, phone, role, created_at FROM users ORDER BY id DESC");
-    $all_users = $stmt->fetchAll();
-} catch (PDOException $e) {
-    die("Gagal menarik data master user: " . $e->getMessage());
+    $controller = new SuperadminController($pdo);
+
+    // Mengecek apakah tombol hapus user ditekan
+    if (isset($_GET['delete'])) {
+        $id_to_delete = intval($_GET['delete']);
+        
+        // Hapus user dari database
+        $controller->handleDeleteUser($id_to_delete);
+        header("Location: users.php");
+        exit;
+    }
+
+    // Mengambil semua data pengguna dari tabel users
+    $all_users = $controller->getUsersList();
+
+} catch (Exception $e) {
+    die("Error Database: " . $e->getMessage());
 }
 ?>
 <!DOCTYPE html>
@@ -42,12 +57,19 @@ try {
         <tbody>
             <?php foreach($all_users as $u): ?>
             <tr>
-                <td>#<?php echo $u['id']; ?></td>
-                <td><strong><?php echo htmlspecialchars($u['name']); ?></strong></td>
-                <td><?php echo htmlspecialchars($u['email']); ?></td>
-                <td><?php echo htmlspecialchars($u['phone']); ?></td>
-                <td><span style="font-weight:700; color:<?php echo $u['role']=='superadmin'?'red':($u['role']=='admin_lapangan'?'orange':'green'); ?>"><?php echo strtoupper($u['role']); ?></span></td>
-                <td><?php echo $u['created_at']; ?></td>
+                <td>#<?php echo htmlspecialchars($u['id']); ?></td>
+                <td><strong><?php echo htmlspecialchars($u['name'] ?? ''); ?></strong></td>
+                <td><?php echo htmlspecialchars($u['email'] ?? '-'); ?></td>
+                <td><?php echo htmlspecialchars($u['phone'] ?? '-'); ?></td>
+                <td>
+                    <?php 
+                        $rawRole = $u['role'] ?? '';
+                        $displayRole = !empty($rawRole) ? strtoupper($rawRole) : 'CUSTOMER';
+                        $roleColor = $rawRole == 'superadmin' ? 'red' : ($rawRole == 'admin_lapangan' ? 'orange' : 'green');
+                    ?>
+                    <span style="font-weight:700; color:<?php echo $roleColor; ?>"><?php echo htmlspecialchars($displayRole); ?></span>
+                </td>
+                <td><?php echo htmlspecialchars($u['created_at']); ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>

@@ -1,34 +1,64 @@
 <?php
 include 'config/database.php';
+require_once 'controllers/FrontController.php';
+
 include 'includes/header.php';
 
 $venue_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
+if (isset($_GET['action']) && $_GET['action'] === 'get_booked') {
+    header('Content-Type: application/json');
+    $court_id = isset($_GET['court_id']) ? intval($_GET['court_id']) : 0;
+    $date = isset($_GET['date']) ? trim($_GET['date']) : '';
+    
+    if ($court_id <= 0 || empty($date)) {
+        echo json_encode([]);
+        exit;
+    }
+    
+    try {
+        $controller = new FrontController($pdo);
+        $bookings = $controller->getBookedSlots($court_id, $date);
+        $booked_times = [];
+        foreach ($bookings as $b) {
+            $booked_times[] = $b['start_time'];
+        }
+        echo json_encode($booked_times);
+    } catch (Exception $e) {
+        echo json_encode([]);
+    }
+    exit;
+}
+
 if ($venue_id <= 0) {
-    die("<script>alert('Tempat olahraga tidak ditemukan!'); window.location.href='search.php';</script>");
+    header("Location: search.php");
+    exit;
 }
 
 try {
-    $stmtVenue = $pdo->prepare("SELECT * FROM venues WHERE id = :vid");
-    $stmtVenue->execute(['vid' => $venue_id]);
-    $venue = $stmtVenue->fetch();
+    $controller = new FrontController($pdo);
+    $detailData = $controller->getVenueDetail($venue_id);
 
-    if (!$venue) {
-        die("<script>alert('Data tempat olahraga tidak valid!'); window.location.href='search.php';</script>");
+    if (!$detailData) {
+        header("Location: search.php");
+        exit;
     }
 
-    $stmtCourts = $pdo->prepare("SELECT * FROM courts WHERE venue_id = :vid");
-    $stmtCourts->execute(['vid' => $venue_id]);
-    $courts = $stmtCourts->fetchAll();
+    $venue = $detailData['venue'];
+    $courts = $detailData['courts'];
+    $reviews = $detailData['reviews'];
 
-    $stmtReviews = $pdo->prepare("SELECT r.*, u.name as user_name 
-                                  FROM reviews r 
-                                  JOIN users u ON r.user_id = u.id 
-                                  WHERE r.venue_id = :vid ORDER BY r.id DESC");
-    $stmtReviews->execute(['vid' => $venue_id]);
-    $reviews = $stmtReviews->fetchAll();
+    $main_image = 'default_court.jpg';
+    if (count($courts) > 0 && !empty($courts[0]['image'])) {
+        $main_image = $courts[0]['image'];
+    }
 
-} catch (PDOException $e) {
+    $courtPrices = [];
+    foreach ($courts as $c) {
+        $courtPrices[$c['id']] = intval($c['price_per_hour']);
+    }
+
+} catch (Exception $e) {
     die("Error Database: " . $e->getMessage());
 }
 ?>
@@ -42,61 +72,55 @@ try {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="assets/css/home.css">
-    <link rel="stylesheet" href="assets/css/detail.css">
+    <link rel="stylesheet" href="assets/css/home.css?v=1.2">
+    <link rel="stylesheet" href="assets/css/detail.css?v=1.2">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 </head>
 <body>
 
-    <main class="detail-container">
-        
-        <section class="detail-main">
-            <div class="main-image-placeholder" style="background: url('assets/img/<?php echo htmlspecialchars($venue['image']); ?>') center/cover no-repeat; height: 400px; border-radius: 16px; margin-bottom: 25px;"></div>
+    <main class="detail-wrapper">
+        <section class="main-info">
+            <div class="main-image-placeholder" style="background: url('assets/images/<?php echo htmlspecialchars($main_image); ?>') center/cover no-repeat; height: 400px; border-radius: 16px; margin-bottom: 25px;"></div>
             
-            <h1 class="venue-title"><?php echo htmlspecialchars($venue['name']); ?></h1>
-            <p class="venue-location">📍 <?php echo htmlspecialchars($venue['location']); ?></p>
-            
-            <div class="contact-card" style="background: #F4F8FF; border: 1px solid #BCD4FA; padding: 15px; border-radius: 8px; margin-bottom: 25px;">
-                <p style="margin: 0; font-weight: 600; color: #004AC6; font-family: 'Poppins';">📞 Nomor Telepon Operasional Lapangan:</p>
-                <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: 700; color: #333;"><?php echo htmlspecialchars($venue['phone'] ?? '0812-3456-7890'); ?></p>
+            <div class="venue-header" style="margin-bottom: 25px;">
+                <h1 class="venue-title"><?php echo htmlspecialchars($venue['name']); ?></h1>
+                <p class="venue-location" style="color: #718096; margin-top: 5px;">📍 <?php echo htmlspecialchars($venue['location']); ?></p>
             </div>
 
-            <div class="courts-section" style="margin-top: 40px;">
-                <h2 style="font-family: 'Poppins'; margin-bottom: 20px;">Daftar Lapangan Tersedia</h2>
-                
-                <?php if (count($courts) > 0): ?>
-                    <div style="display: flex; flex-direction: column; gap: 20px;">
-                        <?php foreach ($courts as $c): ?>
-                            <div style="background: white; border: 1px solid #EAEAEA; padding: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
-                                <div>
-                                    <h3 style="margin: 0 0 5px 0; font-family: 'Poppins';"><?php echo htmlspecialchars($c['court_name']); ?></h3>
-                                    <span style="color: #004AC6; font-weight: 700; font-size: 16px;">Rp <?php echo number_format($c['price_per_hour'], 0, ',', '.'); ?> <span style="font-size: 12px; font-weight: 400; color: #666;">/ Jam</span></span>
-                                </div>
-                                
-                                <form action="booking.php" method="GET" style="display: flex; gap: 10px; align-items: center;">
-                                    <input type="hidden" name="court_id" value="<?php echo $c['id']; ?>">
-                                    
-                                    <input type="date" name="date" value="<?php echo date('Y-m-d'); ?>" required style="padding: 8px; border: 1px solid #CCC; border-radius: 6px;">
-                                    
-                                    <select name="time" required style="padding: 8px; border: 1px solid #CCC; border-radius: 6px;">
-                                        <option value="08:00:00">08:00 - 09:00</option>
-                                        <option value="09:00:00">09:00 - 10:00</option>
-                                        <option value="10:00:00">10:00 - 11:00</option>
-                                        <option value="15:00:00">15:00 - 16:00</option>
-                                        <option value="19:00:00">19:00 - 20:00</option>
-                                    </select>
-                                    
-                                    <button type="submit" style="background: #004AC6; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer;">Pesan Lapangan</button>
-                                </form>
-                            </div>
-                        <?php endforeach; ?>
+            <div class="description-section">
+                <h2>Tentang Venue</h2>
+                <p><?php echo nl2br(htmlspecialchars($venue['description'] ?? 'Belum ada deskripsi untuk venue ini.')); ?></p>
+            </div>
+
+            <?php if (!empty($venue['facilities'])): ?>
+                <div class="description-section" style="margin-top: 40px;">
+                    <h2>Fasilitas</h2>
+                    <div class="facilities-grid">
+                        <?php 
+                        $facs = explode(',', $venue['facilities']);
+                        $iconMap = [
+                            'Kamar Mandi' => 'bx bx-bath',
+                            'Sewa Raket' => 'bx bx-tennis-ball',
+                            'Parkir Luas' => 'bx bx-car',
+                            'Papan Skor' => 'bx bx-chalkboard'
+                        ];
+                        foreach($facs as $f) {
+                            $f = trim($f);
+                            if(!empty($f)) {
+                                $icon = $iconMap[$f] ?? 'bx bx-check-circle';
+                                echo "<div class='facility-item' style='display:flex; flex-direction:column; align-items:center; gap:10px;'>
+                                        <i class='$icon' style='font-size:32px; color:#004AC6;'></i>
+                                        <span>".htmlspecialchars($f)."</span>
+                                      </div>";
+                            }
+                        }
+                        ?>
                     </div>
-                <?php else: ?>
-                    <p style="color: #666;">Belum ada data lapangan spesifik untuk tempat olahraga ini.</p>
-                <?php endif; ?>
-            </div>
+                </div>
+            <?php endif; ?>
 
-            <div class="reviews-section" style="margin-top: 50px;">
-                <h2 style="font-family: 'Poppins'; margin-bottom: 20px;">Ulasan Pengguna (<?php echo count($reviews); ?>)</h2>
+            <div class="description-section" style="margin-top: 40px;">
+                <h2>Ulasan Pengguna (<?php echo count($reviews); ?>)</h2>
                 <?php if (count($reviews) > 0): ?>
                     <?php foreach ($reviews as $rev): ?>
                         <div style="background: #FAFAFA; border-left: 4px solid #004AC6; padding: 15px; margin-bottom: 15px; border-radius: 0 8px 8px 0;">
@@ -115,7 +139,170 @@ try {
             </div>
         </section>
 
+        <aside class="booking-sidebar">
+            <div class="sticky-card">
+                <h3>Pesan Jadwal</h3>
+                
+                <form action="booking.php" method="GET" id="bookingForm">
+                    <div class="form-group">
+                        <label>Pilih Lapangan</label>
+                        <select name="court_id" id="courtSelect" class="form-input" required>
+                            <option value="">-- Pilih Lapangan --</option>
+                            <?php foreach ($courts as $c): ?>
+                                <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['court_name']); ?> - <?php echo htmlspecialchars($c['category']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Pilih Tanggal</label>
+                        <input type="date" name="date" id="dateSelect" class="form-input" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>" required>
+                    </div>
+
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <label style="margin-bottom: 0;">Pilih Waktu</label>
+                            <span id="priceLabel" style="font-size: 12px; color: #666; font-weight: 500;">Rp 0 / Jam</span>
+                        </div>
+                        <div class="time-slots" id="timeGrid">
+                            <button type="button" class="slot-btn" data-time="08:00:00">08:00</button>
+                            <button type="button" class="slot-btn" data-time="09:00:00">09:00</button>
+                            <button type="button" class="slot-btn" data-time="10:00:00">10:00</button>
+                            <button type="button" class="slot-btn" data-time="11:00:00">11:00</button>
+                            <button type="button" class="slot-btn" data-time="12:00:00">12:00</button>
+                            <button type="button" class="slot-btn" data-time="13:00:00">13:00</button>
+                            <button type="button" class="slot-btn" data-time="14:00:00">14:00</button>
+                            <button type="button" class="slot-btn" data-time="15:00:00">15:00</button>
+                            <button type="button" class="slot-btn" data-time="16:00:00">16:00</button>
+                            <button type="button" class="slot-btn" data-time="17:00:00">17:00</button>
+                            <button type="button" class="slot-btn" data-time="18:00:00">18:00</button>
+                            <button type="button" class="slot-btn" data-time="19:00:00">19:00</button>
+                        </div>
+                        
+                        <div style="display: flex; gap: 15px; margin-top: 15px; font-size: 12px; color: #555; align-items: center;">
+                            <span style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; border: 1px solid #ccc; border-radius: 50%;"></div> Tersedia</span>
+                            <span style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background: #004AC6; border-radius: 50%;"></div> Dipilih</span>
+                            <span style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background: #f5f5f5; border: 1px solid #eaeaea; border-radius: 50%;"></div> Penuh</span>
+                        </div>
+                    </div>
+
+                    <div style="border-top: 1px solid #eaeaea; margin: 20px 0; padding-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #666; font-size: 14px;">Total Pembayaran (<span id="hourCount">0</span> Jam)</span>
+                        <span id="totalPrice" style="color: #004AC6; font-size: 22px; font-weight: 700;">Rp 0</span>
+                    </div>
+
+                    <!-- Hidden input to store multiple selected times -->
+                    <input type="hidden" name="time_slots" id="timeSlotsInput" value="">
+                    <button type="submit" class="btn-primary-block" id="btnSubmit" disabled>Lanjut Pembayaran &rarr;</button>
+                </form>
+            </div>
+        </aside>
+
     </main>
+
+    <script>
+        const courtPrices = <?php echo json_encode($courtPrices); ?>;
+        const courtSelect = document.getElementById('courtSelect');
+        const dateSelect = document.getElementById('dateSelect');
+        const priceLabel = document.getElementById('priceLabel');
+        const hourCountLabel = document.getElementById('hourCount');
+        const totalPriceLabel = document.getElementById('totalPrice');
+        const timeSlotsInput = document.getElementById('timeSlotsInput');
+        const btnSubmit = document.getElementById('btnSubmit');
+        const slotBtns = document.querySelectorAll('.slot-btn');
+        
+        let currentPrice = 0;
+        let selectedSlots = [];
+
+        function formatRupiah(number) {
+            return new Intl.NumberFormat('id-ID').format(number);
+        }
+
+        function calculateTotal() {
+            const total = selectedSlots.length * currentPrice;
+            hourCountLabel.textContent = selectedSlots.length;
+            totalPriceLabel.textContent = 'Rp ' + formatRupiah(total);
+            
+            if (selectedSlots.length > 0 && currentPrice > 0) {
+                btnSubmit.removeAttribute('disabled');
+            } else {
+                btnSubmit.setAttribute('disabled', 'true');
+            }
+            
+            timeSlotsInput.value = selectedSlots.join(',');
+        }
+
+        function resetSlots() {
+            selectedSlots = [];
+            slotBtns.forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.remove('booked');
+                btn.removeAttribute('disabled');
+            });
+            calculateTotal();
+        }
+
+        async function fetchBookedTimes() {
+            const courtId = courtSelect.value;
+            const dateStr = dateSelect.value;
+
+            if (!courtId || !dateStr) {
+                resetSlots();
+                return;
+            }
+
+            resetSlots(); // Reset first before applying new ones
+
+            try {
+                const response = await fetch(`detail.php?action=get_booked&court_id=${courtId}&date=${dateStr}`);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const bookedTimes = await response.json();
+
+                slotBtns.forEach(btn => {
+                    const time = btn.getAttribute('data-time');
+                    if (bookedTimes.includes(time)) {
+                        btn.classList.add('booked');
+                        btn.setAttribute('disabled', 'true');
+                    }
+                });
+            } catch (error) {
+                console.error("Error fetching booked times:", error);
+            }
+        }
+
+        courtSelect.addEventListener('change', function() {
+            const val = this.value;
+            if(val && courtPrices[val]) {
+                currentPrice = courtPrices[val];
+                priceLabel.textContent = 'Rp ' + formatRupiah(currentPrice) + ' / Jam';
+            } else {
+                currentPrice = 0;
+                priceLabel.textContent = 'Rp 0 / Jam';
+            }
+            fetchBookedTimes();
+        });
+
+        dateSelect.addEventListener('change', fetchBookedTimes);
+
+        slotBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (this.classList.contains('booked')) return; // Extra safety
+
+                const time = this.getAttribute('data-time');
+                if (this.classList.contains('active')) {
+                    this.classList.remove('active');
+                    selectedSlots = selectedSlots.filter(t => t !== time);
+                } else {
+                    this.classList.add('active');
+                    selectedSlots.push(time);
+                }
+                calculateTotal();
+            });
+        });
+
+        // Trigger fetch on load if values are pre-selected
+        fetchBookedTimes();
+    </script>
 
 </body>
 </html>

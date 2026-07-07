@@ -1,25 +1,31 @@
 <?php
+session_start();
 include '../config/database.php';
+require_once '../controllers/SuperadminController.php';
 
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'superadmin') {
-    echo "<div style='font-family: sans-serif; padding: 20px; color: #DC3545; font-weight: bold;'>";
-    echo "Akses Terlarang! Halaman khusus kendali penuh Superadmin.";
-    echo "</div>";
-    exit;
+    die("
+        <div style='font-family: sans-serif; text-align: center; margin-top: 50px;'>
+            <h2 style='color: #E53E3E;'>Akses Terlarang!</h2>
+            <p style='color: #4A5568;'>Halaman ini adalah Pusat Kendali khusus untuk Superadmin.</p><br>
+            <a href='../auth/logout.php' style='background: #004AC6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;'>Keluar Sistem</a>
+        </div>
+    ");
 }
 
 try {
-    $stmtPending = $pdo->query("SELECT v.*, u.name as owner_name FROM venues v JOIN users u ON v.user_id = u.id WHERE v.status = 'pending' ORDER BY v.id DESC");
-    $pending_venues = $stmtPending->fetchAll();
+    $controller = new SuperadminController($pdo);
+    
+    // Mengambil statistik
+    $stats = $controller->getDashboardStats();
+    
+    $revenue = $stats['revenue'];
+    $count_users = $stats['count_users'];
+    $count_venues = $stats['count_venues'];
+    $pending_venues = $stats['pending_venues'];
 
-    $revenue = $pdo->query("SELECT SUM(total_price) FROM bookings WHERE status='success'")->fetchColumn() ?? 0;
-    $count_users = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
-    $count_venues = $pdo->query("SELECT COUNT(*) FROM venues WHERE status='approved'")->fetchColumn();
-} catch (PDOException $e) {
-    die("Gagal memuat interaksi database: " . $e->getMessage());
+} catch (Exception $e) {
+    die("Error Database: " . $e->getMessage());
 }
 ?>
 <!DOCTYPE html>
@@ -42,11 +48,24 @@ try {
 <body>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
         <div>
-            <h1 style="margin:0; font-family:'Poppins'; color:#004AC6;">Pusat Kendali Utama Superadmin</h1>
+            <h1 style="margin:0; font-family:'Poppins'; color:#004AC6;">Halaman superadmin</h1>
             <p style="margin:5px 0 0 0; color:#666;">Validasi berkas kemitraan fisik dan pantau statistik makro aplikasi.</p>
         </div>
-        <a href="../auth/logout.php" style="background:#666; color:white; padding:10px 20px; text-decoration:none; border-radius:6px; font-weight:600;">Keluar Panel</a>
+        <div>
+            <a href="users.php" style="background:#00BCD4; color:white; padding:10px 20px; text-decoration:none; border-radius:6px; font-weight:600; margin-right:10px;">Kelola User</a>
+            <a href="venues.php" style="background:#28A745; color:white; padding:10px 20px; text-decoration:none; border-radius:6px; font-weight:600; margin-right:10px;">Kelola Data Venue</a>
+            <a href="../auth/logout.php" style="background:#666; color:white; padding:10px 20px; text-decoration:none; border-radius:6px; font-weight:600;">Keluar Panel</a>
+        </div>
     </div>
+
+    <?php if(isset($_SESSION['flash_msg'])): ?>
+        <div style="background:#D4EDDA; color:#155724; padding:15px; border-radius:8px; margin-bottom:20px; font-weight:500; border:1px solid #C3E6CB;">
+            <?php 
+                echo htmlspecialchars($_SESSION['flash_msg']); 
+                unset($_SESSION['flash_msg']);
+            ?>
+        </div>
+    <?php endif; ?>
 
     <div class="grid-stats">
         <div class="card-stat"><h3>Omzet Transaksi Aplikasi</h3><p style="font-size:24px; font-weight:700; color:#28A745;">Rp <?php echo number_format($revenue, 0, ',', '.'); ?></p></div>
@@ -63,7 +82,6 @@ try {
                     <th>Nama Tempat (Venue)</th>
                     <th>Lokasi Operasional</th>
                     <th>Kontak Lapangan</th>
-                    <th>Integritas Surat</th>
                     <th>Aksi Keputusan</th>
                 </tr>
             </thead>
@@ -74,16 +92,23 @@ try {
                             <td><strong><?php echo htmlspecialchars($pv['owner_name']); ?></strong></td>
                             <td><?php echo htmlspecialchars($pv['name']); ?></td>
                             <td><?php echo htmlspecialchars($pv['location']); ?></td>
-                            <td>📞 <?php echo htmlspecialchars($pv['phone']); ?></td>
-                            <td><span style="color:green; font-weight:700;">✔️ <?php echo htmlspecialchars($pv['statement_doc']); ?></span></td>
+                            <td>📞 <?php echo htmlspecialchars($pv['phone'] ?? '-'); ?></td>
                             <td>
-                                <a href="validate.php?action=approve&id=<?php echo $pv['id']; ?>" class="btn-approve" onclick="return confirm('Setujui lokasi lapangan ini agar tayang online?')">Setujui</a>
-                                <a href="validate.php?action=reject&id=<?php echo $pv['id']; ?>" class="btn-reject" onclick="return confirm('Tolak pendaftaran berkas tempat olahraga ini?')">Tolak</a>
+                                <form action="validate.php" method="POST" style="display:inline-block;">
+                                    <input type="hidden" name="id" value="<?php echo $pv['id']; ?>">
+                                    <input type="hidden" name="action" value="approve">
+                                    <button type="submit" class="btn-approve" onclick="return confirm('Setujui lokasi lapangan ini agar tayang online?')">Setujui</button>
+                                </form>
+                                <form action="validate.php" method="POST" style="display:inline-block; margin-left:5px;">
+                                    <input type="hidden" name="id" value="<?php echo $pv['id']; ?>">
+                                    <input type="hidden" name="action" value="reject">
+                                    <button type="submit" class="btn-reject" onclick="return confirm('Tolak pendaftaran berkas tempat olahraga ini?')">Tolak</button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else: ?>
-                    <tr><td colspan="6" style="text-align:center; color:#777; font-style:italic;">Saat ini tidak ada pengajuan pendaftaran mitra baru yang tertunda.</td></tr>
+                    <tr><td colspan="5" style="text-align:center; color:#777; font-style:italic;">Saat ini tidak ada pengajuan pendaftaran mitra baru yang tertunda.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>

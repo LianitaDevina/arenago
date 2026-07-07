@@ -4,63 +4,14 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 require_once '../config/database.php';
+require_once '../controllers/AuthController.php';
 
 $error = '';
 $redirect = isset($_GET['redirect']) ? $_GET['redirect'] : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email']);
-    $password = trim($_POST['password']);
-
-    if (!empty($email) && !empty($password)) {
-        try {
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE email = :email LIMIT 1");
-            $stmt->execute(['email' => $email]);
-            $user = $stmt->fetch();
-
-            if ($user) {
-                $login_sukses = false;
-
-                if (password_verify($password, $user['password'])) {
-                    $login_sukses = true;
-                } elseif (md5($password) === $user['password']) {
-                    $login_sukses = true;
-                }
-
-                if ($login_sukses) {
-                    session_regenerate_id(true);
-
-                    $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['name']    = $user['name'];
-                    $_SESSION['role']    = $user['role'];
-
-                    if ($redirect === 'search') {
-                        header("Location: ../search.php");
-                        exit;
-                    }
-
-                    if ($user['role'] === 'superadmin') {
-                        header("Location: ../superadmin/dashboard.php");
-                        exit;
-                    } elseif ($user['role'] === 'admin_lapangan') {
-                        header("Location: ../admin/dashboard.php");
-                        exit;
-                    } else {
-                        header("Location: ../index.php");
-                        exit;
-                    }
-                } else {
-                    $error = "Email atau password salah!";
-                }
-            } else {
-                $error = "Email atau password salah!";
-            }
-        } catch (PDOException $e) {
-            $error = "Terjadi kesalahan sistem: " . $e->getMessage();
-        }
-    } else {
-        $error = "Silakan isi semua kolom!";
-    }
+    $authController = new AuthController($pdo);
+    $error = $authController->handleLogin($_POST, $redirect);
 }
 ?>
 <!DOCTYPE html>

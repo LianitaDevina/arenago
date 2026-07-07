@@ -1,25 +1,21 @@
 <?php
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
-
+session_start();
 require_once 'config/database.php';
-
-$search_query = isset($_GET['query']) ? trim($_GET['query']) : '';
-$venues = []; 
+require_once 'controllers/FrontController.php';
 
 try {
-    if (!empty($search_query)) {
-        $stmt = $pdo->prepare("SELECT * FROM venues WHERE name LIKE :q OR location LIKE :q");
-        $stmt->execute(['q' => '%' . $search_query . '%']);
-    } else {
-        $stmt = $pdo->query("SELECT * FROM venues ORDER BY id DESC");
-    }
-    if ($stmt) {
-        $venues = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-} catch (PDOException $e) {
-    $venues = []; 
+    $controller = new FrontController($pdo);
+    $searchData = $controller->handleSearch($_GET);
+    
+    $search_query = $searchData['search_query'];
+    $floor_filter = $searchData['floor_filter'];
+    $facility_filter = $searchData['facility_filter'];
+    $sort_filter = $searchData['sort_filter'];
+    $venues = $searchData['venues'];
+} catch (Exception $e) {
+    $venues = [];
+    $search_query = ''; $floor_filter = []; $facility_filter = []; $sort_filter = '';
+    echo "<script>alert('Gagal mengambil data pencarian: " . addslashes($e->getMessage()) . "');</script>";
 }
 ?>
 <!DOCTYPE html>
@@ -78,6 +74,7 @@ try {
 <?php include 'includes/header.php'; ?>
 
 <div class="container">
+    <form method="GET" action="search.php" style="display:flex; width:100%; gap: 30px;">
     <div class="sidebar">
         <div class="filter-header">
             <h2 class="filter-title">Filter</h2>
@@ -86,29 +83,35 @@ try {
         
         <div class="filter-section radio-group">
             <span class="filter-label">Urutkan Berdasarkan</span>
-            <label><input type="radio" name="sort"> Termurah</label>
-            <label><input type="radio" name="sort"> Terdekat</label>
-            <label><input type="radio" name="sort"> Rating Tertinggi</label>
+            <label><input type="radio" name="sort" value="termurah" <?php echo ($sort_filter == 'termurah') ? 'checked' : ''; ?>> Termurah</label>
+            <label><input type="radio" name="sort" value="terdekat" <?php echo ($sort_filter == 'terdekat') ? 'checked' : ''; ?>> Terdekat</label>
+            <label><input type="radio" name="sort" value="tertinggi" <?php echo ($sort_filter == 'tertinggi') ? 'checked' : ''; ?>> Rating Tertinggi</label>
         </div>
 
         <div class="filter-section checkbox-group">
             <span class="filter-label">Tipe Lantai</span>
-            <label><input type="checkbox" checked> Karpet Vinyl</label>
-            <label><input type="checkbox"> Lantai Kayu</label>
+            <label><input type="checkbox" name="floor[]" value="Lantai Vynil" <?php echo in_array('Lantai Vynil', $floor_filter) ? 'checked' : ''; ?>> Lantai Vynil</label>
+            <label><input type="checkbox" name="floor[]" value="Lantai Kayu" <?php echo in_array('Lantai Kayu', $floor_filter) ? 'checked' : ''; ?>> Lantai Kayu</label>
         </div>
 
         <div class="filter-section checkbox-group">
             <span class="filter-label">Fasilitas Tambahan</span>
-            <label><input type="checkbox" checked> Sewa Raket</label>
-            <label><input type="checkbox"> Kok Gratis</label>
+            <?php 
+                $facs = ['Sewa Raket', 'Kamar Mandi', 'Parkir Luas', 'Papan Skor'];
+                foreach($facs as $f) {
+                    $checked = in_array($f, $facility_filter) ? 'checked' : '';
+                    echo "<label><input type='checkbox' name='facility[]' value='$f' $checked> $f</label>";
+                }
+            ?>
         </div>
+        <button type="submit" style="width:100%; padding: 12px; background: #004AC6; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Terapkan Filter</button>
     </div>
 
     <div class="main-content">
         <div class="search-top-bar">
-            <form action="search.php" method="GET" style="display:flex; flex:1; margin:0;">
+            <div style="display:flex; flex:1; margin:0;">
                 <input type="text" name="query" class="search-input" placeholder="Cari lapangan bulutangkis..." value="<?php echo htmlspecialchars($search_query); ?>">
-            </form>
+            </div>
         </div>
         
         <div class="results-info">Menampilkan <?php echo count($venues); ?> hasil pencarian</div>
@@ -116,18 +119,18 @@ try {
         <div class="grid-lapangan">
             <?php if (count($venues) > 0): ?>
                 <?php foreach ($venues as $row): 
-                    $name = $row['name'] ?? 'Venue ArenaGo';
-                    $location = $row['location'] ?? 'Lokasi belum diatur';
-                    $rating = $row['rating'] ?? '0.0';
-                    $image_file = !empty($row['image']) ? $row['image'] : 'default.jpg';
-                    $price = $row['price'] ?? 60000;
-                    $floor = $row['floor_type'] ?? 'Karpet Vinyl';
+                    $name = $row['name'];
+                    $location = $row['location'];
+                    $rating = isset($row['avg_rating']) ? number_format((float)$row['avg_rating'], 1) : '5.0';
+                    $image_file = !empty($row['image_file']) ? $row['image_file'] : 'default_court.jpg';
+                    $price = $row['starting_price'] ?? 0;
+                    $floor = !empty($row['floor_types']) ? $row['floor_types'] : 'Belum diatur';
                 ?>
                     <div class="card">
                         <div class="card-img-container">
                             <div class="status-badge">Available</div>
                             <img src="assets/images/<?php echo htmlspecialchars($image_file); ?>" alt="<?php echo htmlspecialchars($name); ?>" onerror="this.style.display='none'">
-                            <div class="price-badge">Rp <?php echo number_format((float)$price, 0, ',', '.'); ?> / jam</div>
+                            <div class="price-badge">Mulai Rp <?php echo number_format((float)$price, 0, ',', '.'); ?> / jam</div>
                         </div>
                         
                         <div class="card-body">
@@ -159,6 +162,7 @@ try {
             <?php endif; ?>
         </div>
     </div>
+    </form>
 </div>
 
 </body>

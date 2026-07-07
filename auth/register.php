@@ -1,66 +1,18 @@
 <?php
 include '../config/database.php'; 
+require_once '../controllers/AuthController.php';
+
 if (session_status() == PHP_SESSION_NONE) { session_start(); }
 
 $error = "";
 $success = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name']);
-    $email = trim($_POST['email']);
-    $phone = trim($_POST['phone']);
-    $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
-    $role = $_POST['role'];
-
-    if (!empty($name) && !empty($email) && !empty($phone) && !empty($_POST['password'])) {
-        try {
-            $pdo->beginTransaction();
-            $check = $pdo->prepare("SELECT id FROM users WHERE email = :email");
-            $check->execute(['email' => $email]);
-            if ($check->rowCount() > 0) {
-                throw new Exception("Email sudah digunakan!");
-            }
-
-            $insUser = $pdo->prepare("INSERT INTO users (name, email, phone, password, role) VALUES (:name, :email, :phone, :password, :role)");
-            $insUser->execute(['name' => $name, 'email' => $email, 'phone' => $phone, 'password' => $password, 'role' => $role]);
-            $user_id = $pdo->lastInsertId();
-
-            if ($role === 'admin_lapangan') {
-                $venue_name = trim($_POST['venue_name']);
-                $venue_location = trim($_POST['venue_location']);
-                $venue_phone = trim($_POST['venue_phone']);
-                $floor_type = $_POST['floor_type'];
-                
-                if (empty($venue_name) || empty($venue_location) || empty($venue_phone)) {
-                    throw new Exception("Seluruh informasi detail data lapangan wajib diisi lengkap!");
-                }
-
-                if (!isset($_POST['statement_agree'])) {
-                    throw new Exception("Anda wajib menyetujui surat pernyataan keaslian dokumen!");
-                }
-
-                $insVenue = $pdo->prepare("INSERT INTO venues (user_id, name, location, phone, floor_type, status, statement_doc) 
-                                           VALUES (:uid, :vname, :vloc, :vphone, :floor, 'pending', 'SIGNED_DIGITAL_OK')");
-                $insVenue->execute([
-                    'uid' => $user_id,
-                    'vname' => $venue_name,
-                    'vloc' => $venue_location,
-                    'vphone' => $venue_phone,
-                    'floor' => $floor_type
-                ]);
-                $success = "Pendaftaran Mitra Berhasil! Akun Anda sedang ditinjau oleh Superadmin.";
-            } else {
-                $success = "Pendaftaran Berhasil! Silakan masuk ke akun Anda.";
-            }
-
-            $pdo->commit();
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $error = $e->getMessage();
-        }
-    } else {
-        $error = "Semua form pendaftaran wajib diisi!";
-    }
+    $_POST['register'] = true;
+    $authController = new AuthController($pdo);
+    $result = $authController->handleRegister($_POST);
+    $error = $result['error'];
+    $success = $result['success'];
 }
 ?>
 <!DOCTYPE html>
@@ -103,23 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h3 style="font-family:'Poppins'; margin-top:0; font-size:15px; color:#004AC6;">Detail Data Tempat Olahraga</h3>
                 <div class="form-group"><label>Nama Tempat Olahraga (Venue)</label><input type="text" name="venue_name" placeholder="Contoh: Smash Arena Denpasar"></div>
                 <div class="form-group"><label>Alamat Lengkap Lokasi Lapangan</label><textarea name="venue_location" rows="3" placeholder="Nama jalan, kota, dan koordinat singkat..."></textarea></div>
-                <div class="form-group"><label>Nomor Telepon Operasional Lapangan</label><input type="text" name="venue_phone" placeholder="Contoh: 036123456 / 085739000"></div>
-                <div class="form-group">
-                    <label>Jenis Tipe Lantai Utama</label>
-                    <select name="floor_type">
-                        <option value="Karpet Vinyl">Karpet Vinyl</option>
-                        <option value="Lantai Kayu">Lantai Kayu</option>
-                    </select>
-                </div>
-                <div style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #D1E1FA; margin-top: 15px;">
-                    <p style="font-size: 11px; margin: 0 0 8px 0; line-height: 1.4; color: #444;">
-                        <strong>SURAT PERNYATAAN INTEGRITAS:</strong><br>
-                        Dengan mencentang kotak di bawah, saya menyatakan secara sadar bahwa seluruh data kepemilikan aset sarana olahraga yang saya daftarkan di atas adalah valid, sah secara hukum, dan bebas dari sengketa.
-                    </p>
-                    <label style="font-weight: 700; color: #004AC6; display: flex; align-items: center; gap: 6px;">
-                        <input type="checkbox" name="statement_agree" value="1" style="width: auto;"> Saya Setuju & Tunduk Pada Aturan
-                    </label>
-                </div>
             </div>
 
             <button type="submit" class="btn-submit">Selesaikan Pendaftaran</button>
