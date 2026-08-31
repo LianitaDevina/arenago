@@ -2,8 +2,6 @@
 include 'config/database.php';
 require_once 'controllers/FrontController.php';
 
-include 'includes/header.php';
-
 $venue_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 if (isset($_GET['action']) && $_GET['action'] === 'get_booked') {
@@ -30,6 +28,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_booked') {
     exit;
 }
 
+include 'includes/header.php';
+
 if ($venue_id <= 0) {
     header("Location: search.php");
     exit;
@@ -48,10 +48,16 @@ try {
     $courts = $detailData['courts'];
     $reviews = $detailData['reviews'];
 
-    $main_image = 'default_court.jpg';
-    if (count($courts) > 0 && !empty($courts[0]['image'])) {
-        $main_image = $courts[0]['image'];
+    $gallery_images = [];
+    foreach ($courts as $c) {
+        if (!empty($c['image']) && !in_array($c['image'], $gallery_images)) {
+            $gallery_images[] = $c['image'];
+        }
     }
+    if (empty($gallery_images)) {
+        $gallery_images[] = 'default_court.jpg';
+    }
+    $gallery_images = array_slice($gallery_images, 0, 4);
 
     $courtPrices = [];
     foreach ($courts as $c) {
@@ -80,11 +86,20 @@ try {
 
     <main class="detail-wrapper">
         <section class="main-info">
-            <div class="main-image-placeholder" style="background: url('assets/images/<?php echo htmlspecialchars($main_image); ?>') center/cover no-repeat; height: 400px; border-radius: 16px; margin-bottom: 25px;"></div>
+            <div class="image-gallery count-<?php echo count($gallery_images); ?>">
+                <?php foreach ($gallery_images as $index => $img): ?>
+                    <div class="img-wrap img-<?php echo $index + 1; ?>">
+                        <img src="assets/images/<?php echo htmlspecialchars($img); ?>" class="gallery-img" alt="Foto <?php echo $index + 1; ?>">
+                    </div>
+                <?php endforeach; ?>
+            </div>
             
             <div class="venue-header" style="margin-bottom: 25px;">
                 <h1 class="venue-title"><?php echo htmlspecialchars($venue['name']); ?></h1>
                 <p class="venue-location" style="color: #718096; margin-top: 5px;">📍 <?php echo htmlspecialchars($venue['location']); ?></p>
+                <?php if (!empty($venue['phone'])): ?>
+                    <p class="venue-phone" style="color: #004AC6; margin-top: 5px; font-weight: 500;">📞 <?php echo htmlspecialchars($venue['phone']); ?></p>
+                <?php endif; ?>
             </div>
 
             <div class="description-section">
@@ -125,7 +140,7 @@ try {
                     <?php foreach ($reviews as $rev): ?>
                         <div style="background: #FAFAFA; border-left: 4px solid #004AC6; padding: 15px; margin-bottom: 15px; border-radius: 0 8px 8px 0;">
                             <div style="display: flex; justify-content: space-between;">
-                                <strong><?php echo htmlspecialchars($rev['user_name']); ?></strong>
+                                <strong><?php echo htmlspecialchars($rev['reviewer_name'] ?? ''); ?></strong>
                                 <span style="color: #FFB300;">
                                     <?php echo str_repeat('⭐', $rev['rating']); ?>
                                 </span>
@@ -182,7 +197,7 @@ try {
                         <div style="display: flex; gap: 15px; margin-top: 15px; font-size: 12px; color: #555; align-items: center;">
                             <span style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; border: 1px solid #ccc; border-radius: 50%;"></div> Tersedia</span>
                             <span style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background: #004AC6; border-radius: 50%;"></div> Dipilih</span>
-                            <span style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background: #f5f5f5; border: 1px solid #eaeaea; border-radius: 50%;"></div> Penuh</span>
+                            <span style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background: #E2E8F0; border: 1px solid #eaeaea; border-radius: 50%;"></div> Penuh</span>
                         </div>
                     </div>
 

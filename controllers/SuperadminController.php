@@ -78,13 +78,16 @@ class SuperadminController {
             $venue_id = intval($postData['id']);
             $name = trim($postData['name']);
             $location = trim($postData['location']);
+            $phone = trim($postData['phone'] ?? '');
             $description = trim($postData['description'] ?? '');
             $status = trim($postData['status'] ?? 'pending');
             $facilities_arr = isset($postData['facilities']) ? $postData['facilities'] : [];
             $facilities = implode(', ', $facilities_arr);
+            $latitude = isset($postData['latitude']) ? trim($postData['latitude']) : null;
+            $longitude = isset($postData['longitude']) ? trim($postData['longitude']) : null;
 
             if (!empty($name) && !empty($location)) {
-                $success = $this->venueModel->updateVenue($venue_id, $name, $location, $description, $facilities, null, $status);
+                $success = $this->venueModel->updateVenue($venue_id, $name, $location, $phone, $description, $facilities, null, $status, $latitude, $longitude);
                 if ($success) {
                     $_SESSION['flash_msg'] = "Data tempat olahraga berhasil diperbarui.";
                 } else {

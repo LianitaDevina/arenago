@@ -24,6 +24,12 @@ class Court {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    public function getCourtDetails($id) {
+        $stmt = $this->pdo->prepare("SELECT c.*, v.name as venue_name FROM courts c JOIN venues v ON c.venue_id = v.id WHERE c.id = :id");
+        $stmt->execute(['id' => $id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
     public function createCourt($venue_id, $court_name, $price_per_hour, $image, $category) {
         $stmt = $this->pdo->prepare("INSERT INTO courts (venue_id, court_name, price_per_hour, image, category) VALUES (:vid, :cname, :price, :img, :cat)");
         return $stmt->execute([

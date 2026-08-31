@@ -24,14 +24,18 @@ class FrontController {
         $floor_filter = isset($getData['floor']) ? $getData['floor'] : [];
         $facility_filter = isset($getData['facility']) ? $getData['facility'] : [];
         $sort_filter = isset($getData['sort']) ? $getData['sort'] : '';
+        $user_lat = isset($getData['user_lat']) ? trim($getData['user_lat']) : null;
+        $user_lng = isset($getData['user_lng']) ? trim($getData['user_lng']) : null;
 
-        $venues = $this->venueModel->searchWithFilters($search_query, $floor_filter, $facility_filter, $sort_filter);
+        $venues = $this->venueModel->searchWithFilters($search_query, $floor_filter, $facility_filter, $sort_filter, $user_lat, $user_lng);
 
         return [
             'search_query' => $search_query,
             'floor_filter' => $floor_filter,
             'facility_filter' => $facility_filter,
             'sort_filter' => $sort_filter,
+            'user_lat' => $user_lat,
+            'user_lng' => $user_lng,
             'venues' => $venues
         ];
     }

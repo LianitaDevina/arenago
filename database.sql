@@ -14,8 +14,14 @@ CREATE TABLE venues (
     user_id INT NOT NULL, 
     name VARCHAR(100) NOT NULL,
     location TEXT NOT NULL,
-    description TEXT,
+    phone VARCHAR(20) DEFAULT NULL,
+    rating DECIMAL(2,1) DEFAULT 0.0,
+    description TEXT DEFAULT NULL,
     status ENUM('pending', 'approved') DEFAULT 'pending',
+    image VARCHAR(255) DEFAULT 'default.jpg',
+    facilities VARCHAR(255) DEFAULT '',
+    latitude DECIMAL(10, 8) DEFAULT NULL,
+    longitude DECIMAL(11, 8) DEFAULT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 

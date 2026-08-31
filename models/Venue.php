@@ -34,26 +34,38 @@ class Venue {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function createVenue($user_id, $name, $location, $description, $facilities, $image, $status) {
-        $stmt = $this->pdo->prepare("INSERT INTO venues (user_id, name, location, description, facilities, image, status) VALUES (:uid, :name, :loc, :desc, :fac, :img, :status)");
+    public function createVenue($user_id, $name, $location, $phone, $description, $facilities, $image, $status, $latitude = null, $longitude = null) {
+        $latitude = ($latitude !== '' && $latitude !== null) ? $latitude : null;
+        $longitude = ($longitude !== '' && $longitude !== null) ? $longitude : null;
+
+        $stmt = $this->pdo->prepare("INSERT INTO venues (user_id, name, location, phone, description, facilities, image, status, latitude, longitude) VALUES (:uid, :name, :loc, :phone, :desc, :fac, :img, :status, :lat, :lng)");
         return $stmt->execute([
             'uid' => $user_id,
             'name' => $name,
             'loc' => $location,
+            'phone' => $phone,
             'desc' => $description,
             'fac' => $facilities,
             'img' => $image,
-            'status' => $status
+            'status' => $status,
+            'lat' => $latitude,
+            'lng' => $longitude
         ]);
     }
 
-    public function updateVenue($id, $name, $location, $description, $facilities, $image = null, $status = null) {
-        $query = "UPDATE venues SET name = :name, location = :loc, description = :desc, facilities = :fac";
+    public function updateVenue($id, $name, $location, $phone, $description, $facilities, $image = null, $status = null, $latitude = null, $longitude = null) {
+        $latitude = ($latitude !== '' && $latitude !== null) ? $latitude : null;
+        $longitude = ($longitude !== '' && $longitude !== null) ? $longitude : null;
+
+        $query = "UPDATE venues SET name = :name, location = :loc, phone = :phone, description = :desc, facilities = :fac, latitude = :lat, longitude = :lng";
         $params = [
             'name' => $name,
             'loc' => $location,
+            'phone' => $phone,
             'desc' => $description,
             'fac' => $facilities,
+            'lat' => $latitude,
+            'lng' => $longitude,
             'id' => $id
         ];
 
@@ -88,18 +100,26 @@ class Venue {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function searchWithFilters($search_query = '', $floor_filter = [], $facility_filter = [], $sort_filter = '') {
+    public function searchWithFilters($search_query = '', $floor_filter = [], $facility_filter = [], $sort_filter = '', $user_lat = null, $user_lng = null) {
+        $params = [];
+        $distance_select = "";
+
+        if ($user_lat !== null && $user_lat !== '' && $user_lng !== null && $user_lng !== '') {
+            $distance_select = ", (6371 * acos(cos(radians(:user_lat)) * cos(radians(v.latitude)) * cos(radians(v.longitude) - radians(:user_lng)) + sin(radians(:user_lat)) * sin(radians(v.latitude)))) AS distance";
+            $params[':user_lat'] = $user_lat;
+            $params[':user_lng'] = $user_lng;
+        }
+
         $query = "SELECT v.*, 
                        MIN(c.price_per_hour) as starting_price, 
                        (SELECT image FROM courts WHERE venue_id = v.id ORDER BY id ASC LIMIT 1) as image_file,
                        GROUP_CONCAT(DISTINCT c.category) as floor_types,
                        (SELECT IFNULL(AVG(rating), 5.0) FROM reviews WHERE venue_id = v.id) as avg_rating 
-                FROM venues v 
-                LEFT JOIN courts c ON v.id = c.venue_id 
-                WHERE v.status = 'approved'";
+                       $distance_select
+                 FROM venues v 
+                 LEFT JOIN courts c ON v.id = c.venue_id 
+                 WHERE v.status = 'approved'";
         
-        $params = [];
-
         if (!empty($search_query)) {
             $query .= " AND (v.name LIKE :q OR v.location LIKE :q)";
             $params[':q'] = "%" . $search_query . "%";
@@ -132,6 +152,8 @@ class Venue {
                 $query .= " ORDER BY starting_price ASC";
             } elseif ($sort_filter == 'tertinggi') {
                 $query .= " ORDER BY avg_rating DESC";
+            } elseif ($sort_filter == 'terdekat' && $user_lat !== null && $user_lat !== '' && $user_lng !== null && $user_lng !== '') {
+                $query .= " ORDER BY (distance IS NULL) ASC, distance ASC";
             } else {
                 $query .= " ORDER BY v.id DESC";
             }

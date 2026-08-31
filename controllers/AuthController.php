@@ -105,7 +105,7 @@ class AuthController {
                             throw new Exception("Seluruh informasi detail data lapangan wajib diisi lengkap!");
                         }
 
-                        $this->venueModel->createVenue($user_id, $venue_name, $venue_location, '', '', '', 'pending');
+                        $this->venueModel->createVenue($user_id, $venue_name, $venue_location, $phone, '', '', '', 'pending', null, null);
                         $success = "Pendaftaran Mitra Berhasil! Akun Anda sedang ditinjau oleh Superadmin.";
                     } else {
                         $success = "Pendaftaran Berhasil! Silakan masuk dengan akun Anda.";

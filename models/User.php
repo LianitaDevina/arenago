@@ -34,6 +34,15 @@ class User {
             'role' => $role
         ]);
     }
+    public function getUserById($id) {
+        try {
+            $stmt = $this->pdo->prepare("SELECT * FROM users WHERE id = :id");
+            $stmt->execute(['id' => $id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+        return false;
+         }
+    }
 
     public function getAllUsers() {
         $stmt = $this->pdo->query("SELECT * FROM users ORDER BY id DESC");

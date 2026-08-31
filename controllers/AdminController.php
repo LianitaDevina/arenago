@@ -100,15 +100,12 @@ class AdminController {
             }
 
             if ($action === 'add') {
-                if (!$image_name) {
-                    $_SESSION['flash_msg_error'] = "Wajib melampirkan foto / gambar lapangan fisik.";
-                    return true;
-                }
-                $this->courtModel->createCourt($venue_id, $court_name, $price_per_hour, $category, $image_name);
+                $image_name = $image_name ?: '';
+                $this->courtModel->createCourt($venue_id, $court_name, $price_per_hour, $image_name, $category);
                 $_SESSION['flash_msg'] = "Berhasil menambahkan unit lapangan baru!";
             } elseif ($action === 'edit' && isset($postData['id'])) {
                 $court_id = intval($postData['id']);
-                $this->courtModel->updateCourt($court_id, $venue_id, $court_name, $price_per_hour, $category, $image_name);
+                $this->courtModel->updateCourt($court_id, $venue_id, $court_name, $price_per_hour, $image_name, $category);
                 $_SESSION['flash_msg'] = "Data Unit Lapangan berhasil diperbarui!";
             }
             return true;
@@ -120,9 +117,12 @@ class AdminController {
         if (isset($postData['name']) && isset($postData['location'])) {
             $name = trim($postData['name']);
             $location = trim($postData['location']);
+            $phone = trim($postData['phone'] ?? '');
             $description = trim($postData['description'] ?? '');
             $facilities_arr = isset($postData['facilities']) ? $postData['facilities'] : [];
             $facilities = implode(', ', $facilities_arr);
+            $latitude = isset($postData['latitude']) ? trim($postData['latitude']) : null;
+            $longitude = isset($postData['longitude']) ? trim($postData['longitude']) : null;
             $image_name = null;
 
             if (isset($filesData['image']) && $filesData['image']['error'] === UPLOAD_ERR_OK) {
@@ -135,10 +135,10 @@ class AdminController {
             }
 
             if ($venue_id) {
-                $this->venueModel->updateVenue($venue_id, $name, $location, $description, $facilities, $image_name, null);
+                $this->venueModel->updateVenue($venue_id, $name, $location, $phone, $description, $facilities, $image_name, null, $latitude, $longitude);
                 return "<p style='color:green; font-weight:600;'>Profil gedung berhasil diperbarui!</p>";
             } else {
-                $this->venueModel->createVenue($user_id, $name, $location, $description, $facilities, $image_name ?? '', 'pending');
+                $this->venueModel->createVenue($user_id, $name, $location, $phone, $description, $facilities, $image_name ?? '', 'pending', $latitude, $longitude);
                 return "<p style='color:green; font-weight:600;'>Profil gedung berhasil dibuat! Menunggu validasi superadmin.</p>";
             }
         }

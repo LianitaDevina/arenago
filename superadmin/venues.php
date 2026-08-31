@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../config/database.php';
+require_once '../config/maps.php';
 require_once '../controllers/SuperadminController.php';
 
 // Mengecek hak akses
@@ -91,6 +92,26 @@ try {
                 <label>Alamat & Lokasi Lengkap</label>
                 <textarea name="location" rows="3" required><?php echo htmlspecialchars($editVenue['location']); ?></textarea>
             </div>
+
+            <div class="form-group">
+                <label>Nomor Telepon Venue</label>
+                <input type="text" name="phone" value="<?php echo htmlspecialchars($editVenue['phone'] ?? ''); ?>" placeholder="Contoh: 08123456789">
+            </div>
+
+            <div class="form-group">
+                <label>Koordinat Lokasi (Pilih dari peta di bawah)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" name="latitude" id="lat-input" value="<?php echo htmlspecialchars($editVenue['latitude'] ?? ''); ?>" readonly placeholder="Latitude" style="background: #F1F5F9; cursor: not-allowed;">
+                    <input type="text" name="longitude" id="lng-input" value="<?php echo htmlspecialchars($editVenue['longitude'] ?? ''); ?>" readonly placeholder="Longitude" style="background: #F1F5F9; cursor: not-allowed;">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Cari & Tandai Lokasi di Peta</label>
+                <input type="text" id="map-search" placeholder="Ketik area atau alamat untuk melompat ke peta..." style="margin-bottom: 10px;">
+                <div id="map-picker" style="width: 100%; height: 320px; border-radius: 8px; border: 1px solid #CBD5E0; margin-bottom: 5px;"></div>
+                <small style="color: #64748B; display: block; margin-bottom: 10px; line-height: 1.4;">💡 Seret penanda merah atau klik pada peta untuk menyesuaikan letak koordinat venue.</small>
+            </div>
             
             <div class="form-group">
                 <label>Fasilitas Ekstra Tersedia</label>
@@ -168,5 +189,80 @@ try {
             </tbody>
         </table>
     </div>
+
+    <?php if ($editVenue): ?>
+    <!-- Google Maps API for Edit Venue Map Picker -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=<?php echo GMAPS_API_KEY; ?>&libraries=places"></script>
+    <script>
+        function initMapPicker() {
+            let initialLat = parseFloat(document.getElementById('lat-input').value) || -8.6500;
+            let initialLng = parseFloat(document.getElementById('lng-input').value) || 115.2167;
+            
+            let mapOptions = {
+                center: { lat: initialLat, lng: initialLng },
+                zoom: 13,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: true
+            };
+            
+            let map = new google.maps.Map(document.getElementById('map-picker'), mapOptions);
+            
+            let marker = new google.maps.Marker({
+                position: { lat: initialLat, lng: initialLng },
+                map: map,
+                draggable: true,
+                animation: google.maps.Animation.DROP
+            });
+
+            if(document.getElementById('lat-input').value && document.getElementById('lng-input').value) {
+                map.setCenter({ lat: initialLat, lng: initialLng });
+                map.setZoom(16);
+            }
+
+            google.maps.event.addListener(marker, 'dragend', function() {
+                let position = marker.getPosition();
+                document.getElementById('lat-input').value = position.lat().toFixed(8);
+                document.getElementById('lng-input').value = position.lng().toFixed(8);
+            });
+
+            google.maps.event.addListener(map, 'click', function(event) {
+                let latLng = event.latLng;
+                marker.setPosition(latLng);
+                document.getElementById('lat-input').value = latLng.lat().toFixed(8);
+                document.getElementById('lng-input').value = latLng.lng().toFixed(8);
+            });
+
+            let searchInput = document.getElementById('map-search');
+            let autocomplete = new google.maps.places.Autocomplete(searchInput);
+            autocomplete.bindTo('bounds', map);
+
+            autocomplete.addListener('place_changed', function() {
+                let place = autocomplete.getPlace();
+                if (!place.geometry) {
+                    return;
+                }
+
+                if (place.geometry.viewport) {
+                    map.fitBounds(place.geometry.viewport);
+                } else {
+                    map.setCenter(place.geometry.location);
+                    map.setZoom(17);
+                }
+
+                marker.setPosition(place.geometry.location);
+                document.getElementById('lat-input').value = place.geometry.location.lat().toFixed(8);
+                document.getElementById('lng-input').value = place.geometry.location.lng().toFixed(8);
+            });
+            
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.keyCode === 13) {
+                    e.preventDefault();
+                }
+            });
+        }
+        google.maps.event.addDomListener(window, 'load', initMapPicker);
+    </script>
+    <?php endif; ?>
 </body>
 </html>

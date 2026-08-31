@@ -11,10 +11,13 @@ try {
     $floor_filter = $searchData['floor_filter'];
     $facility_filter = $searchData['facility_filter'];
     $sort_filter = $searchData['sort_filter'];
+    $user_lat = $searchData['user_lat'] ?? '';
+    $user_lng = $searchData['user_lng'] ?? '';
     $venues = $searchData['venues'];
 } catch (Exception $e) {
     $venues = [];
     $search_query = ''; $floor_filter = []; $facility_filter = []; $sort_filter = '';
+    $user_lat = ''; $user_lng = '';
     echo "<script>alert('Gagal mengambil data pencarian: " . addslashes($e->getMessage()) . "');</script>";
 }
 ?>
@@ -74,8 +77,10 @@ try {
 <?php include 'includes/header.php'; ?>
 
 <div class="container">
-    <form method="GET" action="search.php" style="display:flex; width:100%; gap: 30px;">
-    <div class="sidebar">
+    <form method="GET" action="search.php" style="display:flex; width:100%; gap: 30px;" id="searchForm">
+        <input type="hidden" name="user_lat" id="user_lat" value="<?php echo htmlspecialchars($user_lat); ?>">
+        <input type="hidden" name="user_lng" id="user_lng" value="<?php echo htmlspecialchars($user_lng); ?>">
+        <div class="sidebar">
         <div class="filter-header">
             <h2 class="filter-title">Filter</h2>
             <a href="search.php" class="filter-reset">Reset</a>
@@ -125,6 +130,7 @@ try {
                     $image_file = !empty($row['image_file']) ? $row['image_file'] : 'default_court.jpg';
                     $price = $row['starting_price'] ?? 0;
                     $floor = !empty($row['floor_types']) ? $row['floor_types'] : 'Belum diatur';
+                    $distance = (isset($row['distance']) && $row['distance'] !== null) ? number_format((float)$row['distance'], 1) . ' km' : null;
                 ?>
                     <div class="card">
                         <div class="card-img-container">
@@ -139,7 +145,12 @@ try {
                                 <div class="card-rating">⭐ <?php echo htmlspecialchars($rating); ?></div>
                             </div>
                             
-                            <div class="card-address">📍 <?php echo htmlspecialchars($location); ?></div>
+                            <div class="card-address">
+                                📍 <?php echo htmlspecialchars($location); ?>
+                                <?php if ($distance): ?>
+                                    <span style="display:inline-block; margin-left: 6px; background:#EBF8FF; color:#2B6CB0; font-size:11px; padding:2px 6px; border-radius:4px; font-weight:600; vertical-align:middle;"><?php echo $distance; ?></span>
+                                <?php endif; ?>
+                            </div>
                             
                             <div class="card-tags">
                                 <span class="tag">Bulutangkis</span>
@@ -164,6 +175,91 @@ try {
     </div>
     </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('searchForm');
+    const radioSorts = document.querySelectorAll('input[name="sort"]');
+    const inputLat = document.getElementById('user_lat');
+    const inputLng = document.getElementById('user_lng');
+
+    // Handle sort radio button click
+    radioSorts.forEach(radio => {
+        radio.addEventListener('change', function(e) {
+            if (this.value === 'terdekat') {
+                e.preventDefault();
+                // If coordinates already exist, just submit
+                if (inputLat.value && inputLng.value) {
+                    form.submit();
+                    return;
+                }
+                
+                requestLocationAndSubmit();
+            } else {
+                // For other sort options, clear coords to avoid passing old values
+                inputLat.value = '';
+                inputLng.value = '';
+                form.submit();
+            }
+        });
+    });
+
+    // Intercept form submit button if sort "terdekat" is selected but coordinates are empty
+    form.addEventListener('submit', function(e) {
+        const selectedSort = document.querySelector('input[name="sort"]:checked');
+        if (selectedSort && selectedSort.value === 'terdekat') {
+            if (!inputLat.value || !inputLng.value) {
+                e.preventDefault();
+                requestLocationAndSubmit();
+            }
+        }
+    });
+
+    function requestLocationAndSubmit() {
+        if (navigator.geolocation) {
+            // Show loading dialog
+            const loadingText = document.createElement('div');
+            loadingText.id = 'geo-loading';
+            loadingText.style = 'position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(14, 30, 56, 0.95); color:white; padding:20px 30px; border-radius:12px; z-index:9999; font-family:"Inter", sans-serif; font-weight:600; font-size:15px; box-shadow:0 10px 25px rgba(0,0,0,0.3); display:flex; align-items:center; gap:12px; transition: 0.3s;';
+            loadingText.innerHTML = "<span class='loader-spin' style='width: 18px; height: 18px; border: 3px solid #FFF; border-bottom-color: transparent; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite;'></span>Mendeteksi lokasi terdekat Anda...";
+            
+            // Add style for rotating animation dynamically
+            const style = document.createElement('style');
+            style.innerHTML = `@keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`;
+            document.head.appendChild(style);
+            document.body.appendChild(loadingText);
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    inputLat.value = position.coords.latitude;
+                    inputLng.value = position.coords.longitude;
+                    document.getElementById('geo-loading')?.remove();
+                    form.submit();
+                },
+                function(error) {
+                    document.getElementById('geo-loading')?.remove();
+                    let msg = "Gagal mendapatkan lokasi Anda. ";
+                    if (error.code === error.PERMISSION_DENIED) {
+                        msg += "Izin lokasi ditolak. Silakan aktifkan izin lokasi di browser Anda untuk menggunakan filter terdekat.";
+                    } else {
+                        msg += "Silakan periksa koneksi internet atau GPS Anda.";
+                    }
+                    alert(msg);
+                    
+                    // Uncheck "terdekat" and fallback to default (re-check previous or check termurah)
+                    const termurahRadio = document.querySelector('input[name="sort"][value="termurah"]');
+                    if (termurahRadio) {
+                        termurahRadio.checked = true;
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 8000 }
+            );
+        } else {
+            alert("Browser Anda tidak mendukung pencarian lokasi otomatis.");
+        }
+    }
+});
+</script>
 
 </body>
 </html>
